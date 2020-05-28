@@ -130,3 +130,5 @@ dmypy.json
 
 docker/
 .idea/
+# More than 100MB file.
+police-department-calls-for-service.json
