@@ -11,9 +11,16 @@ class SFPoliceDepartmentCrimeConsumer:
         self.consumer = KafkaConsumer(topic, **kwargs)
         self.topic = topic
 
-    def get_message(self):
+    def run(self):
+        """This method will run forever"""
         for msg in self.consumer:
-            yield msg
+            self.process_message(msg)
+
+    def process_message(self, message):
+        """Process the given message"""
+        print("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
+                                             message.offset, message.key,
+                                             message.value))
 
 
 if __name__ == "__main__":
@@ -24,7 +31,4 @@ if __name__ == "__main__":
         auto_offset_reset='earliest'
     )
 
-    for message in consumer.get_message():
-        print("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
-                                             message.offset, message.key,
-                                             message.value))
+    consumer.run()
