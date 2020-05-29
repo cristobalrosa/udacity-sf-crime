@@ -1,46 +1,70 @@
 import logging
 import json
+import os
 from pyspark.sql import SparkSession
 from pyspark.sql.types import *
 import pyspark.sql.functions as psf
 
+# --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4
+#os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4 pyspark-shell'
+os.environ['PYSPARK_SUBMIT_ARGS'] = '--packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.3 pyspark-shell'
 
 # TODO Create a schema for incoming resources
 schema = StructType([
+    StructField("crime_id", IntegerType(), False),
+    StructField("original_crime_type_name", StringType(), False),
+    StructField("report_date", DateType(), False),
+    StructField("call_date", DateType(), False),
+    StructField("offense_date", DateType(), False),
+    StructField("call_time", StringType(), False),
+    StructField("call_date_time", TimestampType(), False),
+    StructField("disposition", StringType(), False),
+    StructField("address", StringType(), False),
+    StructField("city", StringType(), False),
+    StructField("state", StringType(), False),
+    StructField("agency_id", IntegerType(), False),
+    StructField("address_type", IntegerType(), False),
+    StructField("common_location", IntegerType(), True),
 ])
 
-def run_spark_job(spark):
 
+def run_spark_job(spark):
     # TODO Create Spark Configuration
     # Create Spark configurations with max offset of 200 per trigger
     # set up correct bootstrap server and port
     df = spark \
         .readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", "localhost:9092") \
+        .option("subscribe", "ccom.sf.police.crime.v1") \
+        .option("startingOffsets", "earliest") \
+        .option("maxOffsetsPerTrigger", 200) \
+        .option("stopGracefullyOnShutdown", "true") \
+        .load()
 
     # Show schema for the incoming resources for checks
     df.printSchema()
 
     # TODO extract the correct column from the kafka input resources
     # Take only value and convert it to String
-    kafka_df = df.selectExpr("")
+    kafka_df = df.selectExpr("CAST(value AS STRING)")
 
-    service_table = kafka_df\
-        .select(psf.from_json(psf.col('value'), schema).alias("DF"))\
+    service_table = kafka_df \
+        .select(psf.from_json(psf.col('value'), schema).alias("DF")) \
         .select("DF.*")
 
     # TODO select original_crime_type_name and disposition
-    distinct_table = 
+    #distinct_table =
 
     # count the number of original crime type
-    agg_df = 
+    #agg_df =
 
     # TODO Q1. Submit a screen shot of a batch ingestion of the aggregation
     # TODO write output stream
-    query = agg_df \
-
-
+    #query = agg_df \
+ #\
     # TODO attach a ProgressReporter
-    query.awaitTermination()
+    #query.awaitTermination()
 
     # TODO get the right radio code json path
     radio_code_json_filepath = ""
@@ -53,10 +77,9 @@ def run_spark_job(spark):
     radio_code_df = radio_code_df.withColumnRenamed("disposition_code", "disposition")
 
     # TODO join on disposition column
-    join_query = agg_df.
+    #join_query = agg_df.
 
-
-    join_query.awaitTermination()
+    #join_query.awaitTermination()
 
 
 if __name__ == "__main__":
