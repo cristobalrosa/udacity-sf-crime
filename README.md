@@ -16,9 +16,45 @@ You may choose to create your project in the workspace we provide here, or if yo
 
 
 ## Step 1
-TBD
+* The first step is to build a simple Kafka server.
+* Complete the code for the server in producer_server.py and kafka_server.py.
+
+**Take a screenshot of your kafka-consumer-console output. You will need to include this screenshot as part of your project submission**
+
+This is an image of the console consumer working on my dev environment (pycharm)
+
+![Consumer Output](./screenshots/UsingPythonConsumer.png)
+
+This is an image of the console consumer working on the workspace environment
+![Consumer Output](./screenshots/workspace/UsingPythonConsumer.png)
+
 ## Step 2
-TBD
+* Apache Spark already has an integration with Kafka brokers, so we would not normally need a separate Kafka consumer. However, we are going to ask you to create one anyway. Why? We'd like you to create the consumer to demonstrate your understanding of creating a complete Kafka Module (producer and consumer) from scratch. In production, you might have to create a dummy producer or consumer to just test out your theory and this will be great practice for that.
+* Implement all the TODO items in `data_stream.py`. You may need to explore the dataset beforehand using a Jupyter Notebook.
+* Do a spark-submit using this command: 
+
+`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4 --master local[*] data_stream.py`
+* Take a screenshot of your progress reporter after executing a Spark job. **You will need to include this screenshot as part of your project submission.**
+
+This is an image of the progress reporter on my dev environment (pycharm)
+
+![Consumer Output](./screenshots/batchProcessing.png)
+
+This is an image of the progress reporter on the workspace
+
+![Consumer Output](./screenshots/workspace/batchProcessing.png)
+
+
+* Take a screenshot of the Spark Streaming UI as the streaming continues. **You will need to include this screenshot as part of your project submission.**
+
+This is an image of the spark UI  on my dev environment (pycharm)
+
+![Consumer Output](./screenshots/sparkUI.png)
+
+This is an image of the sparkUI on the workspace
+
+![Consumer Output](./screenshots/workspace/sparkUI.png)
+
 ## Step 3
 ### How did changing values on the SparkSession property parameters affect the throughput and latency of the data?
 TBD
