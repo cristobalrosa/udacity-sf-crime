@@ -1,6 +1,8 @@
 import producer_server
 
-KAFKA_BROKERS="localhost:9092"
+KAFKA_BROKERS = "localhost:9092"
+
+
 def run_kafka_server():
 	# TODO get the json file path
     input_file = "police-department-calls-for-service.json"
