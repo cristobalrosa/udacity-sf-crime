@@ -13,13 +13,15 @@ You may choose to create your project in the workspace we provide here, or if yo
     Java 1.8.x
     Kafka build with Scala 2.11.x
     Python 3.6.x or 3.7.x
-
-
+    
+I have use a docker compose environment for this project so I can run it locally. 
 ## Step 1
 * The first step is to build a simple Kafka server.
 * Complete the code for the server in producer_server.py and kafka_server.py.
 
+
 **Take a screenshot of your kafka-consumer-console output. You will need to include this screenshot as part of your project submission**
+
 
 This is an image of the console consumer working on my dev environment (pycharm)
 
@@ -49,16 +51,19 @@ This is an image of the console consumer using the command line
 Write the answers to these questions in the README.md doc of your GitHub repo:
 
 ### How did changing values on the SparkSession property parameters affect the throughput and latency of the data?
-The way I have observed how the throughput changed was looking at the number of processed rows per second:
-```
-  "runId" : "05cad87f-8c7f-4d1a-b017-ba1337bb295d",
-  "name" : "Original Crime Type Count Aggregation",
-  "timestamp" : "2020-05-31T13:50:30.000Z",
-  "batchId" : 58,
-  "numInputRows" : 200,
-  "inputRowsPerSecond" : 6.666666666666667,
-  "processedRowsPerSecond" : 30.698388334612435,
-```
+
+I have observed how the throughput changes with different parameters using the progress report and specifically the processedRowsPerSecond.
+
+
+
+### What were the 2-3 most efficient SparkSession property key/value pairs? Through testing multiple variations on values, how can you tell these were the most optimal?
+
+
+
+By default we started with 1 partition in our kafka topic so one of the things we can do to increase throughput is to increase the number of partitions so we can have 
+more consumers reading data in parallel.
+
+#### Some tests results.
 TEST 1: Creating a topic with 10 partitions.
 `kafka-topics --create --bootstrap-server localhost:9092 --replication-factor 1 --partitions 10  --topic udacity.sf.police.crime.v2`
 Just changing the number of partitions on the kafka topic did not make a huge impact. So let's tune some other values.
@@ -159,13 +164,6 @@ TEST 4: parallelism=4, shuffle.partitions=5
 
 TEST 5: parallelism=4, shuffle.partitions=1
 it slows down.
-
-
-### What were the 2-3 most efficient SparkSession property key/value pairs? Through testing multiple variations on values, how can you tell these were the most optimal?
-By default we started with 1 partition in our kafka topic so one of the things we can do to increase throughput is to increase the number of partitions so we can have 
-more consumers reading data in parallel.
-
-
 
 ### References
 * https://kafka-python.readthedocs.io/en/master/usage.html
