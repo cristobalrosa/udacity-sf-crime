@@ -1,5 +1,5 @@
 from kafka import KafkaConsumer
-
+import time
 KAFKA_BROKERS = "localhost:9092"
 
 
@@ -21,11 +21,12 @@ class SFPoliceDepartmentCrimeConsumer:
         print("%s:%d:%d: key=%s value=%s" % (message.topic, message.partition,
                                              message.offset, message.key,
                                              message.value))
+        time.sleep(1)
 
 
 if __name__ == "__main__":
     consumer = SFPoliceDepartmentCrimeConsumer(
-        "com.sf.police.crime.v1",
+        "udacity.sf.police.crime.v1",
         bootstrap_servers=KAFKA_BROKERS,
         client_id="sf-police-department-consumer",
         auto_offset_reset='earliest'
