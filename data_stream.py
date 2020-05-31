@@ -41,7 +41,6 @@ def configure_logging(spark):
 
 def run_spark_job(spark):
     configure_logging(spark)
-
     # TODO Create Spark Configuration
     # Create Spark configurations with max offset of 200 per trigger
     # set up correct bootstrap server and port
@@ -50,7 +49,7 @@ def run_spark_job(spark):
         .readStream \
         .format("kafka") \
         .option("kafka.bootstrap.servers", "localhost:9092") \
-        .option("subscribe", "udacity.sf.police.crime.v1") \
+        .option("subscribe", "udacity.sf.police.crime.v2") \
         .option("startingOffsets", "earliest") \
         .option("maxOffsetsPerTrigger", 200) \
         .option("stopGracefullyOnShutdown", "true") \
@@ -156,10 +155,17 @@ if __name__ == "__main__":
         .builder \
         .master("local[*]") \
         .appName("KafkaSparkStructuredStreaming") \
+        .config("spark.default.parallelism", "4") \
+        .config("spark.sql.shuffle.partitions", "5") \
         .getOrCreate()
 
-    logger.info("Spark started")
+    conf = spark.sparkContext.getConf()
+    print("================================================================>")
+    for value in conf.getAll():
+        print(value)
+    print("================================================================>")
 
+    logger.info("Spark started")
     run_spark_job(spark)
 
     spark.stop()
