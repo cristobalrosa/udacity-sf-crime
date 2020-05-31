@@ -13,15 +13,20 @@ You may choose to create your project in the workspace we provide here, or if yo
     Java 1.8.x
     Kafka build with Scala 2.11.x
     Python 3.6.x or 3.7.x
-    
-I have use a docker compose environment for this project so I can run it locally. 
-## Step 1
-* The first step is to build a simple Kafka server.
-* Complete the code for the server in producer_server.py and kafka_server.py.
+## Project rubric
+### Configure Zookeeper/Kafka server correctly. Write Kafka Producer code correctly.
+I have used a docker compose environment for this project so I can run it locally. To start the environment just run 
+`docker-compose up` on the docker folder. 
 
+I have configured zookeeper to listen in the default port 2181 and then I have set up kafka to use that zookeeper instance
+by setting up the environment variable:
+```KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"```
 
-**Take a screenshot of your kafka-consumer-console output. You will need to include this screenshot as part of your project submission**
+Kafka is configured to be listening on `localhost:9092` from outside the internal docker network `crosa-labsl-network` and 
+on `kafka:29092` from inside the docker network. Since I'm going to run the `kafka_server.py` from my local 
+computer and not from  the docker network I will have to configure it to connect to localhost:9092. 
 
+### Create a properly working Apache Kafka server that is producing data. Create a visualization of the data produced by the Kafka server by creating a consumer server
 
 This is an image of the console consumer working on my dev environment (pycharm)
 
@@ -30,38 +35,109 @@ This is an image of the console consumer working on my dev environment (pycharm)
 This is an image of the console consumer using the command line
 ![Consumer Output](./screenshots/consoleConsumer.png)
 
-## Step 2
-* Apache Spark already has an integration with Kafka brokers, so we would not normally need a separate Kafka consumer. However, we are going to ask you to create one anyway. Why? We'd like you to create the consumer to demonstrate your understanding of creating a complete Kafka Module (producer and consumer) from scratch. In production, you might have to create a dummy producer or consumer to just test out your theory and this will be great practice for that.
-* Implement all the TODO items in `data_stream.py`. You may need to explore the dataset beforehand using a Jupyter Notebook.
-* Do a spark-submit using this command: 
+Kafdrop UI showing data on the topic:
+![Consumer Output](./screenshots/kafdrop.png)
 
-`spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.4 --master local[*] data_stream.py`
-* Take a screenshot of your progress reporter after executing a Spark job. **You will need to include this screenshot as part of your project submission.**
+### Set up SparkSession in local mode and Spark configurations.
 
+A couple of things here:
+```    spark = SparkSession \
+        .builder \
+        .master("local[*]") \
+        .appName("KafkaSparkStructuredStreaming") \
+        .config("spark.default.parallelism", "4") \
+        .config("spark.sql.shuffle.partitions", "5") \
+        .getOrCreate()
+
+    conf = spark.sparkContext.getConf()
+    print("================================================================>")
+    for value in conf.getAll():
+        print(value)
+    print("================================================================>")
+```
+I have create the spark session with a couple of parameters which values i have got after some tests I will describe below.
+I have also printed the configuration so I can verify the values I was configuring were being used.
+
+Then I have configured my input stream to listen from the topic I have created and from my instance of kafka:
+```    df = spark \
+        .readStream \
+        .format("kafka") \
+        .option("kafka.bootstrap.servers", "localhost:9092") \
+        .option("subscribe", "udacity.sf.police.crime.v2") \
+        .option("startingOffsets", "earliest") \
+        .option("maxOffsetsPerTrigger", 200) \
+        .option("stopGracefullyOnShutdown", "true") \
+        .load()
+```
+NOTE: In order to make the spark logs less verbose and make it easier to follow the exercise
+I have implemented a method to configure the logging level so I only see what i want to see in the output. 
+
+#### Question 1: How did changing values on the SparkSession property parameters affect the throughput and latency of the data?
+
+I have observed how the throughput changes with different parameters using the progress report and specifically the processedRowsPerSecond.
+This is a really small app and I'm pretty sure I have miss some of the key performance indicators, I guess in a much bigger application we would 
+need to make sure we monitor memory consumption in the spark workers, io between nodes, etc.
+To monitor the latency I have been taking a look at the spark UI to see how much time it took for a single job to run and
+when changing the number of partitions I saw a significant change from more than 10s using 200 shuffle partitions to less than 1s using 
+5 partitions. This also affected the processedRowsPerSecond that went from 40 to more than 200.
+These are the screenshots I took for the spark UI:
+![Consumer Output](./screenshots/sparkUILocal.png)
+![Consumer Output](./screenshots/sparkUILocal2.png)
+
+Using 5 partitions
+![Consumer Output](./screenshots/sparkUI-5partitions.png)
+
+### Select relevant input from the Kafka producer. Build a schema for JSON input.
+In order to create the JSON schema the first thing I did was to take a look at the data so I can understand the type of data. 
+(I figured it out I made a few mistake with my first schema because when I run the app everything was null)
+
+From kafka we read key and value, so the first step is to get the value which is where we put the payload (the json object with the information)
+```kafka_df = df.selectExpr("CAST(value AS STRING)")```
+
+Then we want to create a structured dataframe by using the schema we defined:
+``` service_table = kafka_df \
+        .select(psf.from_json(psf.col('value'), schema).alias("DF")) \
+        .select("DF.*")
+```
+
+### Write various statistical analytics using Spark Structured Streaming APIs, and analyze and monitor the status of the current micro-batch through progress reporter.
+We want to aggregate by original_crime_type_name so we create a group by query. I have used a watemark of 10m to avoid
+having memory issues and I have splitted the aggregations in a sliding window of 10m with 5m slide. Finally 
+I have also included the disposition on the group by so I can do the join later.
+
+While doing this I have run into a really nice [blog](https://databricks.com/blog/2017/05/08/event-time-aggregation-watermarking-apache-sparks-structured-streaming.html) that talks about watermarking and how it works:
+
+```
+    agg_df = distinct_table \
+        .select("original_crime_type_name", "disposition", "call_date_time_ts") \
+        .withWatermark("call_date_time_ts", "10 minutes") \
+        .groupBy("original_crime_type_name",
+                 psf.window("call_date_time_ts", "10 minutes", "5 minutes"),
+                 "disposition"  # Including this field so I can run the aggregation later.
+                 ) \
+        .count()
+```
+
+For the join I have use a left join because I want to retrieve the aggregation results even when there is not a matching disposition 
+on the radio_code table. 
+
+### Question 2: What were the 2-3 most efficient SparkSession property key/value pairs? Through testing multiple variations on values, how can you tell these were the most optimal?
+I tried a few things by changing:
+* spark.default.parallelism. My docker compose is using 4 cores so I tried increasing and decreasing the parallelism above and below 4 but I didn't see any significant changes in throughtput nor latency 
+* number of kafka partitions per topic. Trying to make it faster I changes the kafka topic from using 1 partition to use 10, this way we can parallelize the consumption. After the change, I also played with the parallelism configuration, but again, I did not notice significant changes. 
+I bet in a bigger application with a bigger dataset we should see a much higher throughput when increasing the number of partitions and making sure the parallelism value is correct. 
+* spark.sql.shuffle.partitions. This is the configuration parameter that caused the biggest impact on the throughtput and the latency in the application running on my local container. 
+Because of the amount of resources I have in my computer 200 partitions were way too much and instead of speeding up the app it was causing it to be really slow, because we were managing a bunch of many small task.  
+
+#### Conclusion
+It's been a nice exercise but I have figured it out how complex spark and distributed systems are. I feel like I need more in hands exercise to make sure 
+I understand how the cluster behaves when changing different configurations, I will sure keep looking at this. 
+
+#### Progress reporter screenshots
 ![Consumer Output](./screenshots/ProgressReport.png)
 ![Consumer Output](./screenshots/ProgressReportJoin.png)
 
 
-* Take a screenshot of the Spark Streaming UI as the streaming continues. **You will need to include this screenshot as part of your project submission.**
-
-![Consumer Output](./screenshots/sparkUILocal.png)
-![Consumer Output](./screenshots/sparkUILocal2.png)
-
-## Step 3
-Write the answers to these questions in the README.md doc of your GitHub repo:
-
-### How did changing values on the SparkSession property parameters affect the throughput and latency of the data?
-
-I have observed how the throughput changes with different parameters using the progress report and specifically the processedRowsPerSecond.
-
-
-
-### What were the 2-3 most efficient SparkSession property key/value pairs? Through testing multiple variations on values, how can you tell these were the most optimal?
-
-
-
-By default we started with 1 partition in our kafka topic so one of the things we can do to increase throughput is to increase the number of partitions so we can have 
-more consumers reading data in parallel.
 
 #### Some tests results.
 TEST 1: Creating a topic with 10 partitions.
